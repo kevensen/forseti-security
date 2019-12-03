@@ -1178,7 +1178,7 @@ def main(args=None,
     config = parser.parse_args(args)
 
     if not client:
-        client = iam_client.ClientComposition(endpoint=config.endpoint, secure=bool(config.enpoint))
+        client = iam_client.ClientComposition(endpoint=config.endpoint, secure=bool(config.endpoint))
     client.switch_model(config.use_model)
 
     if not outputs:
