@@ -152,6 +152,14 @@ def define_config_parser(parent):
         type=str,
         help='Server endpoint in host:port format')
 
+    set_secure_config_parser = action_subparser.add_parser(
+        'secure',
+        help='Configure secure connection (experimental)')
+    set_secure_config_parser.add_argument(
+        'name',
+        type=str,
+        help='Configure secure connection (experimental)')
+
     set_model_config_parser = action_subparser.add_parser(
         'model',
         help='Configure the model to use')
@@ -653,6 +661,12 @@ def run_config(_, config, output, config_env):
         DefaultConfigParser.persist(config_env)
         do_show_config()
 
+    def do_set_secure():
+        """Set a config item."""
+        config_env['secure'] = config.name
+        DefaultConfigParser.persist(config_env)
+        do_show_config()
+
     def do_delete_config():
         """Delete a config item."""
         del config_env[config.key]
@@ -1041,6 +1055,7 @@ class DefaultConfig(dict):
         'endpoint': '',
         'model': '',
         'format': 'json',
+        'secure': 'false',
     }
 
     def __init__(self, *args, **kwargs):
@@ -1163,7 +1178,7 @@ def main(args=None,
     config = parser.parse_args(args)
 
     if not client:
-        client = iam_client.ClientComposition(config.endpoint)
+        client = iam_client.ClientComposition(endpoint=config.endpoint, secure=bool(config.enpoint))
     client.switch_model(config.use_model)
 
     if not outputs:

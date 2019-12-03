@@ -714,7 +714,7 @@ class ClientComposition(object):
 
     DEFAULT_ENDPOINT = 'localhost:50051'
 
-    def __init__(self, endpoint=DEFAULT_ENDPOINT, ping=False):
+    def __init__(self, endpoint=DEFAULT_ENDPOINT, ping=False, secure=False):
         """Initialize
 
         Args:
