@@ -156,7 +156,7 @@ def define_config_parser(parent):
         'secure',
         help='Configure secure connection (experimental)')
     set_secure_config_parser.add_argument(
-        'name',
+        'secure',
         type=str,
         help='Configure secure connection (experimental)')
 
@@ -663,7 +663,7 @@ def run_config(_, config, output, config_env):
 
     def do_set_secure():
         """Set a config item."""
-        config_env['secure'] = config.name
+        config_env['secure'] = config.secure
         DefaultConfigParser.persist(config_env)
         do_show_config()
 
