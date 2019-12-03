@@ -686,7 +686,8 @@ def run_config(_, config, output, config_env):
         'endpoint': do_set_endpoint,
         'format': do_set_output,
         'reset': do_reset_config,
-        'delete': do_delete_config}
+        'delete': do_delete_config,
+        'secure': do_set_secure}
 
     actions[config.action]()
 
