@@ -19,6 +19,11 @@ import binascii
 import os
 import grpc
 
+import google.auth
+from google.auth.transport import grpc as google_auth_transport_grpc
+from google.auth.transport import requests as google_auth_transport_requests
+from google.auth import compute_engine as google_auth_compute_engine
+
 from google.cloud.forseti.services.explain import explain_pb2
 from google.cloud.forseti.services.explain import explain_pb2_grpc
 from google.cloud.forseti.services.inventory import inventory_pb2
@@ -725,10 +730,16 @@ class ClientComposition(object):
             Exception: gRPC connected but services not registered
         """
         self.gigabyte = 1024 ** 3
-        self.channel = grpc.insecure_channel(endpoint, options=[
-            ('grpc.max_receive_message_length', self.gigabyte)])
-        self.config = ClientConfig({'channel': self.channel, 'handle': ''})
+        if not secure:
+            self.channel = grpc.insecure_channel(endpoint, options=[
+                ('grpc.max_receive_message_length', self.gigabyte)])
+        else:
+            request = google_auth_transport_requests.Request()
+            credentials = google_auth_compute_engine.IDTokenCredentials(request, target_audience=f'https://{endpoint}')
+            credentials.refresh(request)
+            self.channel = google_auth_transport_grpc.secure_authorized_channel(credentials=credentials, request=request, target=endpoint)
 
+        self.config = ClientConfig({'channel': self.channel, 'handle': ''})
         self.explain = ExplainClient(self.config)
         self.inventory = InventoryClient(self.config)
         self.scanner = ScannerClient(self.config)
