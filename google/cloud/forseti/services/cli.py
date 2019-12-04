@@ -577,6 +577,11 @@ def define_parent_parser(parser_cls, config_env):
         '--out-format',
         default=config_env['format'],
         choices=['json'])
+    parent_parser.add_argument(
+        '--secure',
+        default=config_env['secure'],
+        choices=['true', 'false'],
+        help='Configure secure connection (experimental)')
     return parent_parser
 
 
@@ -1178,8 +1183,12 @@ def main(args=None,
     parser = create_parser(parser_cls, config_env)
     config = parser.parse_args(args)
 
+    is_secure = False
+    if config.secure == 'true':
+        is_secure = True
+
     if not client:
-        client = iam_client.ClientComposition(endpoint=config.endpoint, secure=bool(config.endpoint))
+        client = iam_client.ClientComposition(endpoint=config.endpoint, secure=is_secure)
     client.switch_model(config.use_model)
 
     if not outputs:
