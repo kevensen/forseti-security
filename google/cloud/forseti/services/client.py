@@ -730,14 +730,13 @@ class ClientComposition(object):
             Exception: gRPC connected but services not registered
         """
         self.gigabyte = 1024 ** 3
-        if not secure:
-            self.channel = grpc.insecure_channel(endpoint, options=[
-                ('grpc.max_receive_message_length', self.gigabyte)])
-        else:
+        self.channel = grpc.insecure_channel(endpoint, options=[('grpc.max_receive_message_length', self.gigabyte)])
+        
+        if secure:
             request = google_auth_transport_requests.Request()
             credentials = google_auth_compute_engine.IDTokenCredentials(request, target_audience=f'https://{endpoint}')
             credentials.refresh(request)
-            self.channel = google_auth_transport_grpc.secure_authorized_channel(credentials=credentials, request=request, target=endpoint)
+            self.channel = google_auth_transport_grpc.secure_authorized_channel(credentials=credentials, request=request, target=endpoint, options=[('grpc.max_receive_message_length', self.gigabyte)])
 
         self.config = ClientConfig({'channel': self.channel, 'handle': ''})
         self.explain = ExplainClient(self.config)
