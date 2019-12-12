@@ -18,42 +18,8 @@
 # when building our website
 
 BUILD_FROM_PYTHON_SOURCE_BRANCH="${1:-master}"
-TEMP_SOURCE_DIRECTORY="$(mktemp -d)"
-readonly BUILD_FROM_PYTHON_SOURCE_BRANCH TEMP_SOURCE_DIRECTORY
+readonly BUILD_FROM_PYTHON_SOURCE_BRANCH
 
-trap 'rm -rf "${TEMP_SOURCE_DIRECTORY}"' EXIT
-
-#######################################
-# Checks out the latest version of
-# sourcecode so that we can build our
-# API reference documentation from the
-# Python docstrings.
-# Globals:
-#   TEMP_SOURCE_DIRECTORY
-#######################################
-function checkout_python_source_to_temp_directory() {
-    git clone https://github.com/forseti-security/forseti-security.git \
-      --branch ${BUILD_FROM_PYTHON_SOURCE_BRANCH} \
-      --single-branch ${TEMP_SOURCE_DIRECTORY}
-
-    # Update git's index since checking out to a worktree in a separate
-    # directory changes the contents of git's index in the current working
-    # directory, due to the nature of git-checkout
-    git add -u .
-}
-
-#######################################
-# Use the production-ready Dockerfiles
-# to build the sourcecode without
-# affecting the host machine.
-# Globals:
-#   TEMP_SOURCE_DIRECTORY
-#######################################
-function build_python_source_in_docker() {
-    pushd $TEMP_SOURCE_DIRECTORY
-      ./install/scripts/docker_setup_forseti.sh
-    popd
-}
 
 #######################################
 # Generate the API reference doc from
@@ -64,6 +30,7 @@ function build_python_source_in_docker() {
 #######################################
 function generate_sphinx_docs_in_docker() {
     docker build \
+      --build-arg BUILD_FROM_PYTHON_SOURCE_BRANCH=$BUILD_FROM_PYTHON_SOURCE_BRANCH \
       -t forseti/generate_sphinx_docs \
       -f scripts/docker/generate_sphinx_docs.Dockerfile ./scripts/docker
 }
@@ -79,15 +46,13 @@ function copy_sphinx_docs_into_jekyll_docs() {
 
     # Copy generated docs from container into Jekyll
     docker cp \
-      "${container_id}":/home/forseti/forseti-security/build/sphinx/html/. \
+      "${container_id}":/opt/forseti-security/build/sphinx/html/. \
       _docs/_latest/develop/reference
 
     docker rm "${container_id}"
 }
 
 function main() {
-    checkout_python_source_to_temp_directory
-    build_python_source_in_docker
     generate_sphinx_docs_in_docker
     copy_sphinx_docs_into_jekyll_docs
 }
