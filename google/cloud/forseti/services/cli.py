@@ -233,6 +233,11 @@ def define_server_parser(parent):
               'the server vm or a gcs path starts with gs://).')
     )
 
+    action_subparser.add_parser(
+        'run',
+        help='Run the Forseti process, end-to-end.'
+    )
+
 
 def define_model_parser(parent):
     """Define the model service parser.
@@ -569,6 +574,9 @@ def define_parent_parser(parser_cls, config_env):
         '--out-format',
         default=config_env['format'],
         choices=['json'])
+    parent_parser.add_argument(
+        '--cloud_run',
+        action='store_true')
     return parent_parser
 
 
@@ -707,6 +715,8 @@ def run_server(client, config, output, _):
             config (object): argparser namespace to use.
             output (Output): output writer to use.
             _ (object): Configuration environment.
+        Raises:
+            AttributeError: If action is not 'run' and the subaction is missing.
     """
 
     client = client.server_config
@@ -728,6 +738,13 @@ def run_server(client, config, output, _):
         """Get the configuration of the server."""
         output.write(client.get_server_configuration())
 
+    def do_server_run():
+        """Run the Forseti server, end-to-end"""
+        # for message in client.server_run():
+        #     output.write(message)
+        message = client.server_run()
+        output.write(message)
+
     actions = {
         'log_level': {
             'get': do_get_log_level,
@@ -736,10 +753,16 @@ def run_server(client, config, output, _):
         'configuration': {
             'get': do_get_configuration,
             'reload': do_reload_configuration
-        }
+        },
+        'run': do_server_run
     }
 
-    actions[config.action][config.subaction]()
+    try:
+        actions[config.action][config.subaction]()
+    except AttributeError:
+        if config.action != 'run':
+            raise AttributeError
+        actions[config.action]()
 
 
 def run_notifier(client, config, output, _):
@@ -1163,7 +1186,7 @@ def main(args=None,
     config = parser.parse_args(args)
 
     if not client:
-        client = iam_client.ClientComposition(config.endpoint)
+        client = iam_client.ClientComposition(config.endpoint, cloud_run=config.cloud_run)
     client.switch_model(config.use_model)
 
     if not outputs:
@@ -1184,7 +1207,10 @@ def main(args=None,
                   'If you are accessing from a client VM, make sure the '
                   '`server_ip` field inside the client configuration file in '
                   'the Forseti client GCS bucket contains the right IP '
-                  'address.\n')
+                  'address.\n'
+                  'If the server was just deployed, you may need to wait a few '
+                  'more minutes before running Forseti. You can check the '
+                  'Stackdriver logs for more detailed status.\n')
         else:
             print('Error occurred on the server side, message: {}'.format(e))
     except ModelNotSetError:

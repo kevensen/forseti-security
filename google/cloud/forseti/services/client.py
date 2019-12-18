@@ -19,6 +19,10 @@ import binascii
 import os
 import grpc
 
+from google import auth as google_auth
+from google.auth.transport import grpc as google_auth_transport_grpc
+from google.auth.transport import requests as google_auth_transport_requests
+from google.oauth2 import id_token, service_account
 from google.cloud.forseti.services.explain import explain_pb2
 from google.cloud.forseti.services.explain import explain_pb2_grpc
 from google.cloud.forseti.services.inventory import inventory_pb2
@@ -206,6 +210,15 @@ class ServerConfigClient(ForsetiClient):
         """
         request = server_pb2.GetServerConfigurationRequest()
         return self.stub.GetServerConfiguration(request)
+
+    def server_run(self):
+        """Run the Forseti server, end-to-end.
+
+        Returns:
+            proto: the returned proto message.
+        """
+        request = server_pb2.ServerRunRequest()
+        return self.stub.Run(request)
 
 
 class NotifierClient(ForsetiClient):
@@ -714,7 +727,7 @@ class ClientComposition(object):
 
     DEFAULT_ENDPOINT = 'localhost:50051'
 
-    def __init__(self, endpoint=DEFAULT_ENDPOINT, ping=False):
+    def __init__(self, endpoint=DEFAULT_ENDPOINT, ping=False, cloud_run=False):
         """Initialize
 
         Args:
@@ -725,8 +738,19 @@ class ClientComposition(object):
             Exception: gRPC connected but services not registered
         """
         self.gigabyte = 1024 ** 3
-        self.channel = grpc.insecure_channel(endpoint, options=[
-            ('grpc.max_receive_message_length', self.gigabyte)])
+        print('Cloud Run: {}'.format(str(cloud_run)))
+
+        if not cloud_run:
+            self.channel = grpc.insecure_channel(endpoint, options=[
+                ('grpc.max_receive_message_length', self.gigabyte)])
+        else:
+            credentials, _ = google_auth.default()
+            request = google_auth_transport_requests.Request()
+            credentials.refresh(request)
+            self.channel = google_auth_transport_grpc.secure_authorized_channel(
+                credentials, request, endpoint, options=[
+                    ('grpc.max_receive_message_length', self.gigabyte)])
+
         self.config = ClientConfig({'channel': self.channel, 'handle': ''})
 
         self.explain = ExplainClient(self.config)

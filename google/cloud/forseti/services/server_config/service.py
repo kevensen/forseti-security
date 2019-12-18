@@ -18,12 +18,56 @@ from builtins import object
 import json
 import logging
 
+from google.cloud.forseti.services.client import ClientComposition
+
 from google.cloud.forseti.services.server_config import server_pb2
 from google.cloud.forseti.services.server_config import server_pb2_grpc
 from google.cloud.forseti.common.util import logger
 
 
 LOGGER = logger.get_logger(__name__)
+
+
+def _run(client):
+    """Runs Forseti.
+
+    Args:
+        client (ClientComposition): Forseti client object.
+
+    Yields:
+        ServerRunReply: the returned proto message.
+    """
+
+    model_name = 'run_model'
+    message='Forseti server run complete'
+
+    inventory_id = 0
+
+    for progress in client.inventory.create():
+        inventory_id = progress.id
+
+    model_reply = client.model.new_model(
+        'inventory',
+        model_name,
+        inventory_id,
+        False)
+
+    model_handle = model_reply.model.handle
+    model_status = model_reply.model.status
+
+    client.switch_model(model_handle)
+
+    if model_status in ['SUCCESS', 'PARTIAL_SUCCESS']:
+        for progress in client.scanner.run(scanner_name=None):
+            pass
+        for progress in client.notifier.run(inventory_id, 0):
+            pass
+    else:
+        message='ERROR: Model status is {}'.format(model_status)
+
+    client.delete_model(model_handle)
+
+    return server_pb2.ServerRunReply(message=message)
 
 
 class GrpcServiceConfig(server_pb2_grpc.ServerServicer):
@@ -133,6 +177,22 @@ class GrpcServiceConfig(server_pb2_grpc.ServerServicer):
         return server_pb2.GetServerConfigurationReply(
             configuration=json.dumps(forseti_config, sort_keys=True))
 
+    def Run(self, request, _):
+        """Run Forseti inventory, scanner and notifier
+
+        Args:
+            request (ServerRunRequest): The grpc request object.
+            _ (object): Context of the request.
+
+        Yields:
+            ServerRunReply: The ServerRunReply
+                grpc object.
+        """
+
+        LOGGER.info('Running the server processes, end-to-end.')
+        client = ClientComposition()
+        
+        return _run(client)
 
 class GrpcServerConfigFactory(object):
     """Factory class for Server config service gRPC interface"""
