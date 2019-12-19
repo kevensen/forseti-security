@@ -221,7 +221,7 @@ class ServerConfigClient(ForsetiClient):
         """
         request = server_pb2.ServerRunRequest()
         print("META-DATA --> {}".format(self.metadata()))
-        return self.stub.Run(request, metadata=self.metadata())
+        return self.stub.Run(request)
 
 
 class NotifierClient(ForsetiClient):
