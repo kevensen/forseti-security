@@ -86,6 +86,9 @@ class ClientConfig(dict):
         """
         return self['handle']
 
+    def id_token(self):
+        return self['id_token']
+
 
 class ForsetiClient(object):
     """Client base class."""
@@ -104,8 +107,10 @@ class ForsetiClient(object):
         Returns:
             list: the default metada for gRPC call
         """
-
-        return [('handle', self.config.handle())]
+        metadata = [('handle', self.config.handle())]
+        if self.config.id_token:
+            metadata.append(('authorization', f'Bearer {self.config.id_token()}'))
+        return metadata
 
 
 class ScannerClient(ForsetiClient):
@@ -221,7 +226,7 @@ class ServerConfigClient(ForsetiClient):
         """
         request = server_pb2.ServerRunRequest()
         print("META-DATA --> {}".format(self.metadata()))
-        return self.stub.Run(request)
+        return self.stub.Run(request, metadata=self.metadata())
 
 
 class NotifierClient(ForsetiClient):
@@ -741,14 +746,25 @@ class ClientComposition(object):
             Exception: gRPC connected but services not registered
         """
         self.gigabyte = 1024 ** 3
+        token_id = None
+
         if not cloud_run:
             self.channel = grpc.insecure_channel(endpoint, options=[
                 ('grpc.max_receive_message_length', self.gigabyte)])
         else:
+            target_audience = f'https://{endpoint}'
             request = google_auth_transport_requests.Request()
-            credentials = google_auth_compute_engine.IDTokenCredentials(request, target_audience=f'https://{endpoint}')
+            credentials = google_auth_compute_engine.IDTokenCredentials(request, target_audience)
             credentials.refresh(request)
+            first_token = credentials.token
+            second_token = self.GetIDTokenFromComputeEngine(target_audience)
 
+            if first_token == second_token:
+                print("TOKENS ARE EQUAL")
+                token_id = first_token
+            else:
+                print("TOKENS ARE NOT EQUAL")
+                token_id = second_token
             
             for name, data in inspect.getmembers(credentials):
                 if name.startswith('__'):
@@ -759,7 +775,7 @@ class ClientComposition(object):
                 credentials=credentials, request=request, target=endpoint, options=[
                     ('grpc.max_receive_message_length', self.gigabyte)])
 
-        self.config = ClientConfig({'channel': self.channel, 'handle': ''})
+        self.config = ClientConfig({'channel': self.channel, 'handle': '', 'token_id': token_id, })
 
         self.explain = ExplainClient(self.config)
         self.inventory = InventoryClient(self.config)
@@ -777,6 +793,14 @@ class ClientComposition(object):
         if ping:
             if not all([c.is_available() for c in self.clients]):
                 raise Exception('gRPC connected but services not registered')
+
+    def GetIDTokenFromComputeEngine(self, target_audience):
+        metadata_identity_doc_url = "http://metadata/computeMetadata/v1/instance/service-accounts/default/identity"
+        request = google_auth_transport_requests.Request()
+        url = metadata_identity_doc_url + "?audience=" + target_audience
+        headers = {"Metadata-Flavor":"Google" }
+        resp = request(url, method='GET', headers=headers)
+        return resp.data
 
     def new_model(self, source, name, inventory_index_id=0, background=False):
         """Create a new model from the specified source.
