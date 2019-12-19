@@ -221,13 +221,7 @@ class ServerConfigClient(ForsetiClient):
         """
         request = server_pb2.ServerRunRequest()
         print("META-DATA --> {}".format(self.metadata()))
-        try:
-            return self.stub.Run(request, metadata=self.metadata())
-        except Exception as e:
-            print(e)
-            track = traceback.format_exc()
-            print(track)
-            raise e
+        return self.stub.Run(request, metadata=self.metadata())
 
 
 class NotifierClient(ForsetiClient):
