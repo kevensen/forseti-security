@@ -20,10 +20,11 @@ import os
 import grpc
 import traceback
 
-from google import auth as google_auth
+import google.auth
 from google.auth.transport import grpc as google_auth_transport_grpc
 from google.auth.transport import requests as google_auth_transport_requests
-from google.oauth2 import id_token, service_account
+from google.auth import compute_engine as google_auth_compute_engine
+
 from google.cloud.forseti.services.explain import explain_pb2
 from google.cloud.forseti.services.explain import explain_pb2_grpc
 from google.cloud.forseti.services.inventory import inventory_pb2
@@ -86,14 +87,6 @@ class ClientConfig(dict):
         """
         return self['handle']
 
-    def id_token(self):
-        """Return the current ID token.
-
-        Returns:
-            str: The ID token derrived from the default credentials.
-        """
-        return self['id_token']
-
 
 class ForsetiClient(object):
     """Client base class."""
@@ -112,10 +105,7 @@ class ForsetiClient(object):
         Returns:
             list: the default metada for gRPC call
         """
-        metadata = [('handle', self.config.handle())]
-        if self.config.id_token():
-            metadata.append(('authorization', 'Bearer {}'.format(self.config.id_token())))
-        return metadata
+        return [('handle', self.config.handle())]
 
 
 class ScannerClient(ForsetiClient):
@@ -757,22 +747,21 @@ class ClientComposition(object):
             Exception: gRPC connected but services not registered
         """
         self.gigabyte = 1024 ** 3
-        id_token = None
+
 
         if not cloud_run:
             self.channel = grpc.insecure_channel(endpoint, options=[
                 ('grpc.max_receive_message_length', self.gigabyte)])
         else:
-            credentials, _ = google_auth.default()
             request = google_auth_transport_requests.Request()
+            credentials = google_auth_compute_engine.IDTokenCredentials(request, target_audience=f'https://{endpoint}')
             credentials.refresh(request)
-            id_token = credentials.id_token
             
             self.channel = google_auth_transport_grpc.secure_authorized_channel(
                 credentials=credentials, request=request, target=endpoint, options=[
                     ('grpc.max_receive_message_length', self.gigabyte)])
 
-        self.config = ClientConfig({'channel': self.channel, 'handle': '', 'id_token': id_token})
+        self.config = ClientConfig({'channel': self.channel, 'handle': ''})
 
         self.explain = ExplainClient(self.config)
         self.inventory = InventoryClient(self.config)
