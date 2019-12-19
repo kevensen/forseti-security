@@ -86,14 +86,6 @@ class ClientConfig(dict):
         """
         return self['handle']
 
-    def id_token(self):
-        """Return the current ID token.
-
-        Returns:
-            str: The ID token derrived from the default credentials.
-        """
-        return self['id_token']
-
 
 class ForsetiClient(object):
     """Client base class."""
@@ -112,10 +104,8 @@ class ForsetiClient(object):
         Returns:
             list: the default metada for gRPC call
         """
-        metadata = [('handle', self.config.handle())]
-        if self.config.id_token():
-            metadata.append(('authorization', 'Bearer {}'.format(self.config.id_token())))
-        return metadata
+
+        return [('handle', self.config.handle())]
 
 
 class ScannerClient(ForsetiClient):
@@ -757,8 +747,6 @@ class ClientComposition(object):
             Exception: gRPC connected but services not registered
         """
         self.gigabyte = 1024 ** 3
-        id_token = None
-
         if not cloud_run:
             self.channel = grpc.insecure_channel(endpoint, options=[
                 ('grpc.max_receive_message_length', self.gigabyte)])
@@ -767,7 +755,7 @@ class ClientComposition(object):
             credentials = google_auth_compute_engine.IDTokenCredentials(request, target_audience=f'https://{endpoint}')
             credentials.refresh(request)
 
-            id_token = credentials.token
+            
             for name, data in inspect.getmembers(credentials):
                 if name.startswith('__'):
                     continue
@@ -777,7 +765,7 @@ class ClientComposition(object):
                 credentials=credentials, request=request, target=endpoint, options=[
                     ('grpc.max_receive_message_length', self.gigabyte)])
 
-        self.config = ClientConfig({'channel': self.channel, 'handle': '', 'id_token': id_token})
+        self.config = ClientConfig({'channel': self.channel, 'handle': ''})
 
         self.explain = ExplainClient(self.config)
         self.inventory = InventoryClient(self.config)
