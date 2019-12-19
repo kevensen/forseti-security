@@ -19,6 +19,7 @@ import binascii
 import os
 import grpc
 import inspect
+import traceback
 
 import google.auth
 from google.auth.transport import grpc as google_auth_transport_grpc
@@ -226,7 +227,10 @@ class ServerConfigClient(ForsetiClient):
         """
         request = server_pb2.ServerRunRequest()
         print("META-DATA --> {}".format(self.metadata()))
-        return self.stub.Run(request, metadata=self.metadata())
+        try:
+            return self.stub.Run(request, metadata=self.metadata())
+        except Exception as e:
+            traceback.print_exc()
 
 
 class NotifierClient(ForsetiClient):
@@ -769,7 +773,7 @@ class ClientComposition(object):
             for name, data in inspect.getmembers(credentials):
                 if name.startswith('__'):
                     continue
-                print('{} : {!r}'.format(name, data)) 
+                print('{} : {!r}'.format(name, data))
                         
             self.channel = google_auth_transport_grpc.secure_authorized_channel(
                 credentials=credentials, request=request, target=endpoint, options=[
