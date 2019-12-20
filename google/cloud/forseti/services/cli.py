@@ -742,8 +742,12 @@ def run_server(client, config, output, _):
         """Run the Forseti server, end-to-end"""
         # for message in client.server_run():
         #     output.write(message)
-        message = client.server_run()
-        output.write(message)
+        print("GOT HERE")
+        try:
+            message = client.server_run()
+            output.write(message)
+        except Exception as e:
+            print(e)
 
     actions = {
         'log_level': {

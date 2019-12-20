@@ -13,18 +13,29 @@
 # limitations under the License.
 
 """Helper functions for API clients."""
+import requests
 
 import google.auth
 from google.auth import iam
 from google.auth.credentials import with_scopes_if_required
-from google.auth.transport import requests
+from google.auth.transport import requests as google_auth_requests
 from google.oauth2 import service_account
 
 from google.cloud.forseti.common.gcp_api._base_repository import CLOUD_SCOPES
 
 
 _TOKEN_URI = 'https://accounts.google.com/o/oauth2/token'
+_METADATA_SERVER_TOKEN_URL = 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience='
 
+
+def get_default_credentials():
+    request = google_auth_requests.Request()
+
+    # Get the "bootstrap" credentials that will be used to talk to the IAM
+    # API to sign blobs.
+    credentials, _ = google.auth.default()
+
+    return credentials
 
 def get_delegated_credential(delegated_account, scopes):
     """Build delegated credentials required for accessing the gsuite APIs.
@@ -38,11 +49,7 @@ def get_delegated_credential(delegated_account, scopes):
         service_account.Credentials: Credentials as built by
         google.oauth2.service_account.
     """
-    request = requests.Request()
-
-    # Get the "bootstrap" credentials that will be used to talk to the IAM
-    # API to sign blobs.
-    bootstrap_credentials, _ = google.auth.default()
+    bootstrap_credentials = get_default_credentials()   
 
     bootstrap_credentials = with_scopes_if_required(
         bootstrap_credentials,
@@ -154,3 +161,15 @@ def get_ratelimiter_config(global_configs, api_name):
     max_calls = global_configs.get(api_name, {}).get('max_calls')
     quota_period = global_configs.get(api_name, {}).get('period')
     return max_calls, quota_period
+
+def get_jwt(endpoint):
+    # Set up metadata server request
+    # See https://cloud.google.com/compute/docs/instances/verifying-instance-identity#request_signature
+    
+    token_request_url = _METADATA_SERVER_TOKEN_URL + endpoint
+    token_request_headers = {'Metadata-Flavor': 'Google'}
+
+    # Fetch the token
+    token_response = requests.get(token_request_url, headers=token_request_headers)
+    jwt = token_response.content.decode("utf-8")
+    return jwt

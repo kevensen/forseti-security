@@ -21,10 +21,9 @@ import grpc
 import inspect
 import traceback
 
-import google.auth
-from google.auth.transport import grpc as google_auth_transport_grpc
-from google.auth.transport import requests as google_auth_transport_requests
-from google.auth import compute_engine as google_auth_compute_engine
+import google.auth.transport.grpc as google_auth_transport_grpc
+
+from google.cloud.forseti.common.gcp_api import api_helpers
 from google.cloud.forseti.services.explain import explain_pb2
 from google.cloud.forseti.services.explain import explain_pb2_grpc
 from google.cloud.forseti.services.inventory import inventory_pb2
@@ -750,36 +749,20 @@ class ClientComposition(object):
             Exception: gRPC connected but services not registered
         """
         self.gigabyte = 1024 ** 3
-        token_id = None
+        id_token = None
 
-        if not cloud_run:
-            self.channel = grpc.insecure_channel(endpoint, options=[
-                ('grpc.max_receive_message_length', self.gigabyte)])
-        else:
-            target_audience = f'https://{endpoint}'
-            request = google_auth_transport_requests.Request()
-            credentials = google_auth_compute_engine.IDTokenCredentials(request, target_audience)
-            credentials.refresh(request)
-            first_token = credentials.token
-            second_token = self.GetIDTokenFromComputeEngine(target_audience)
-
-            if first_token == second_token:
-                print("TOKENS ARE EQUAL")
-                token_id = first_token
-            else:
-                print("TOKENS ARE NOT EQUAL")
-                token_id = second_token
-            
-            for name, data in inspect.getmembers(credentials):
-                if name.startswith('__'):
-                    continue
-                print('{} : {!r}'.format(name, data))
-                        
+        
+        self.channel = grpc.insecure_channel(endpoint, options=[
+            ('grpc.max_receive_message_length', self.gigabyte)])
+        
+        if cloud_run:
+            id_token = api_helpers.get_jwt(endpoint)
+            credentials = api_helpers.get_default_credentials()            
             self.channel = google_auth_transport_grpc.secure_authorized_channel(
-                credentials=credentials, request=request, target=endpoint, options=[
+                credentials=credentials, request=None, target=endpoint, options=[
                     ('grpc.max_receive_message_length', self.gigabyte)])
 
-        self.config = ClientConfig({'channel': self.channel, 'handle': '', 'token_id': token_id, })
+        self.config = ClientConfig({'channel': self.channel, 'handle': '', 'id_token': id_token, })
 
         self.explain = ExplainClient(self.config)
         self.inventory = InventoryClient(self.config)
@@ -798,13 +781,6 @@ class ClientComposition(object):
             if not all([c.is_available() for c in self.clients]):
                 raise Exception('gRPC connected but services not registered')
 
-    def GetIDTokenFromComputeEngine(self, target_audience):
-        metadata_identity_doc_url = "http://metadata/computeMetadata/v1/instance/service-accounts/default/identity"
-        request = google_auth_transport_requests.Request()
-        url = metadata_identity_doc_url + "?audience=" + target_audience
-        headers = {"Metadata-Flavor":"Google" }
-        resp = request(url, method='GET', headers=headers)
-        return resp.data
 
     def new_model(self, source, name, inventory_index_id=0, background=False):
         """Create a new model from the specified source.
