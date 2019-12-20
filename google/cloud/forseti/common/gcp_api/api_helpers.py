@@ -18,7 +18,7 @@ import requests
 import google.auth
 from google.auth import iam
 from google.auth.credentials import with_scopes_if_required
-from google.auth.transport import requests
+from google.auth.transport import requests as google_auth_transport_requests
 from google.oauth2 import service_account
 
 from google.cloud.forseti.common.gcp_api._base_repository import CLOUD_SCOPES
@@ -45,7 +45,7 @@ def get_delegated_credential(delegated_account, scopes):
         service_account.Credentials: Credentials as built by
         google.oauth2.service_account.
     """
-    request = requests.Request()
+    request = google_auth_transport_requests.Request()
 
     # Get the "bootstrap" credentials that will be used to talk to the IAM
     # API to sign blobs.
