@@ -21,6 +21,7 @@ import grpc
 import inspect
 import traceback
 
+import google.auth
 from google.auth.transport import requests as google_auth_requests
 import google.auth.transport.grpc as google_auth_transport_grpc
 
