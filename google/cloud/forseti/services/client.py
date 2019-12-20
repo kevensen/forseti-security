@@ -225,11 +225,7 @@ class ServerConfigClient(ForsetiClient):
             proto: the returned proto message.
         """
         request = server_pb2.ServerRunRequest()
-        print("META-DATA --> {}".format(self.metadata()))
-        try:
-            return self.stub.Run(request, metadata=self.metadata())
-        except Exception as e:
-            traceback.print_exc()
+        return self.stub.Run(request, metadata=self.metadata())
 
 
 class NotifierClient(ForsetiClient):

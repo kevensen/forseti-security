@@ -166,7 +166,8 @@ def get_jwt(endpoint):
     # Set up metadata server request
     # See https://cloud.google.com/compute/docs/instances/verifying-instance-identity#request_signature
     
-    token_request_url = _METADATA_SERVER_TOKEN_URL + endpoint
+    endpoint_no_port = endpoint.split(':')[0]
+    token_request_url = _METADATA_SERVER_TOKEN_URL + f'https://{endpoint_no_port}'
     token_request_headers = {'Metadata-Flavor': 'Google'}
 
     # Fetch the token
