@@ -18,7 +18,7 @@ import requests
 import google.auth
 from google.auth import iam
 from google.auth.credentials import with_scopes_if_required
-from google.auth.transport import requests as google_auth_requests
+from google.auth.transport import requests
 from google.oauth2 import service_account
 
 from google.cloud.forseti.common.gcp_api._base_repository import CLOUD_SCOPES
@@ -29,11 +29,7 @@ _METADATA_SERVER_TOKEN_URL = 'http://metadata/computeMetadata/v1/instance/servic
 
 
 def get_default_credentials():
-    request = google_auth_requests.Request()
-
-    # Get the "bootstrap" credentials that will be used to talk to the IAM
-    # API to sign blobs.
-    credentials, _ = google.auth.default()
+    
 
     return credentials
 
@@ -49,7 +45,11 @@ def get_delegated_credential(delegated_account, scopes):
         service_account.Credentials: Credentials as built by
         google.oauth2.service_account.
     """
-    bootstrap_credentials = get_default_credentials()   
+    request = requests.Request()
+
+    # Get the "bootstrap" credentials that will be used to talk to the IAM
+    # API to sign blobs.
+    bootstrap_credentials, _ = google.auth.default()  
 
     bootstrap_credentials = with_scopes_if_required(
         bootstrap_credentials,
@@ -163,9 +163,14 @@ def get_ratelimiter_config(global_configs, api_name):
     return max_calls, quota_period
 
 def get_jwt(endpoint):
-    # Set up metadata server request
-    # See https://cloud.google.com/compute/docs/instances/verifying-instance-identity#request_signature
-    
+    """Get service account JWT
+
+    Args:
+        endpoint: The endpoint of the Forseti server (without prefix)
+
+    Returns:
+        str: JWT token
+    """    
     endpoint_no_port = endpoint.split(':')[0]
     token_request_url = _METADATA_SERVER_TOKEN_URL + f'https://{endpoint_no_port}'
     token_request_headers = {'Metadata-Flavor': 'Google'}

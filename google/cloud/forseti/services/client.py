@@ -21,6 +21,7 @@ import grpc
 import inspect
 import traceback
 
+from google.auth.transport import requests as google_auth_requests
 import google.auth.transport.grpc as google_auth_transport_grpc
 
 from google.cloud.forseti.common.gcp_api import api_helpers
@@ -746,16 +747,16 @@ class ClientComposition(object):
         """
         self.gigabyte = 1024 ** 3
         id_token = None
-
         
         self.channel = grpc.insecure_channel(endpoint, options=[
             ('grpc.max_receive_message_length', self.gigabyte)])
         
         if cloud_run:
             id_token = api_helpers.get_jwt(endpoint)
-            credentials = api_helpers.get_default_credentials()            
+            credentials = api_helpers.get_default_credentials()  
+            request = google_auth_requests.Request()          
             self.channel = google_auth_transport_grpc.secure_authorized_channel(
-                credentials=credentials, request=None, target=endpoint, options=[
+                credentials=credentials, request=request, target=endpoint, options=[
                     ('grpc.max_receive_message_length', self.gigabyte)])
 
         self.config = ClientConfig({'channel': self.channel, 'handle': '', 'id_token': id_token, })
