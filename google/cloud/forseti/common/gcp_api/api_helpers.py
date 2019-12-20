@@ -28,11 +28,6 @@ _TOKEN_URI = 'https://accounts.google.com/o/oauth2/token'
 _METADATA_SERVER_TOKEN_URL = 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience='
 
 
-def get_default_credentials():
-    
-
-    return credentials
-
 def get_delegated_credential(delegated_account, scopes):
     """Build delegated credentials required for accessing the gsuite APIs.
 

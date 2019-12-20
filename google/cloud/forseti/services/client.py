@@ -752,9 +752,11 @@ class ClientComposition(object):
             ('grpc.max_receive_message_length', self.gigabyte)])
         
         if cloud_run:
+            
             id_token = api_helpers.get_jwt(endpoint)
-            credentials = api_helpers.get_default_credentials()  
-            request = google_auth_requests.Request()          
+            credentials, _ = google.auth.default()    
+            request = google_auth_requests.Request()     
+
             self.channel = google_auth_transport_grpc.secure_authorized_channel(
                 credentials=credentials, request=request, target=endpoint, options=[
                     ('grpc.max_receive_message_length', self.gigabyte)])
